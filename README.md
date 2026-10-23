@@ -1,0 +1,69 @@
+<div align="center">
+
+# TubeHaus for Android and Windows
+
+**YouTube on your own terms — and everything runs on your device.**
+
+No server, no account, no Google sign-in, no tracking. The app talks to YouTube directly,
+keeps your subscriptions, history and playlists on the device, and works out recommendations
+there too.
+
+**[⬇ Download the Android APK (0.1.2, beta)](https://github.com/biolend83/tubehaus/releases/download/app-v0.1.2/TubeHaus-0.1.2.apk)** · [All app releases](https://github.com/biolend83/tubehaus/releases) · [TubeHaus web app (main branch)](https://github.com/biolend83/tubehaus)
+
+</div>
+
+## What it does
+
+- **Home that learns on your device** — built from videos related to what you watched, new uploads
+  from your subscriptions and the topics you like, with room for something new so it doesn't
+  collapse into one subject. Settings → *What TubeHaus learned about you* shows every score and
+  lets you change or wipe it.
+- **Shorts with their own engine** — learns from skipping, finishing, looping and likes.
+- **Subscriptions without an account** — from each channel's public feed. Import from YouTube
+  (Google Takeout), NewPipe, FreeTube, Invidious, TubeHaus or OPML.
+- **A real player** — adaptive quality up to 4K/8K (AV1, VP9, H.264 picked by what your hardware
+  decodes), captions with auto-translate, speed, resume where you stopped.
+  - Android: background play with notification controls, picture-in-picture, opens YouTube links.
+  - Windows: mpv with GPU decoding and its own on-screen controls.
+- **Calm mode** — no view counts, no Shorts, nothing starts by itself.
+- **Your data moves freely** — export a TubeHaus backup (also readable by the TubeHaus web app),
+  Invidious, CSV or OPML.
+
+## How it works
+
+The app has its own small YouTube engine (`common/src/app/tubehaus/engine`). It calls InnerTube,
+the JSON API YouTube's own apps use: the web client for search, channels, playlists, related
+videos and comments; for streams, clients whose answers carry ready-to-play URLs. Nothing goes
+through a TubeHaus server, because there isn't one.
+
+One set of Kotlin sources (`common/src`) is compiled twice: by the Android app with Jetpack
+Compose and by the desktop app with Compose for Desktop. Only the player differs —
+ExoPlayer (Media3) on Android, libmpv on Windows.
+
+## Install
+
+- **Android 8.0+** — [the APK](https://github.com/biolend83/tubehaus/releases/download/app-v0.1.2/TubeHaus-0.1.2.apk)
+  (beta). Open it on the phone and allow installing from your browser when asked.
+  Updates: [Obtainium](https://obtainium.imranr.dev) with `https://github.com/biolend83/tubehaus`
+  (tick "include pre-releases", filter tags by `app-v`).
+- **Windows 10/11** — coming: an installer (`.msi`) with mpv built in.
+
+There is no iOS version: apps outside the App Store can't be installed on an iPhone without
+re-signing them every week. On iPhone and iPad, use the TubeHaus web app.
+
+## Build
+
+JDK 21+ and the Android SDK.
+
+```sh
+./gradlew :android:assembleRelease     # android/build/outputs/apk/release
+./gradlew :desktop:run                 # needs libmpv-2.dll in desktop/resources/windows
+./gradlew :desktop:packageMsi          # needs a JDK with jpackage
+```
+
+libmpv for Windows comes from [shinchiro's mpv builds](https://github.com/shinchiro/mpv-winbuild-cmake/releases)
+(`mpv-dev-x86_64-*.7z`, the file `libmpv-2.dll`). The release workflow downloads it.
+
+## License
+
+GPL-3.0. Not affiliated with YouTube or Google.

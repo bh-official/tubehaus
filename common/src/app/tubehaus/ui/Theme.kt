@@ -1,0 +1,52 @@
+package app.tubehaus.ui
+
+import androidx.compose.foundation.isSystemInDarkTheme
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Typography
+import androidx.compose.material3.darkColorScheme
+import androidx.compose.material3.lightColorScheme
+import androidx.compose.runtime.Composable
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.sp
+
+// The classic, bright look of the TubeHaus web app: white pages, black titles, grey details,
+// blue links and the red logo.
+val Red = Color(0xFFFF0033)
+val Blue = Color(0xFF065FD4)
+
+private val light = lightColorScheme(
+    primary = Color(0xFF0F0F0F), onPrimary = Color.White,
+    secondary = Blue, onSecondary = Color.White,
+    background = Color.White, onBackground = Color(0xFF0F0F0F),
+    surface = Color.White, onSurface = Color(0xFF0F0F0F),
+    surfaceVariant = Color(0xFFF2F2F2), onSurfaceVariant = Color(0xFF606060),
+    surfaceContainer = Color(0xFFF2F2F2), surfaceContainerHigh = Color(0xFFE8E8E8),
+    outline = Color(0xFFE5E5E5), error = Color(0xFFCC0000),
+)
+
+private val dark = darkColorScheme(
+    primary = Color(0xFFF1F1F1), onPrimary = Color(0xFF0F0F0F),
+    secondary = Color(0xFF3EA6FF), onSecondary = Color(0xFF0F0F0F),
+    background = Color(0xFF0F0F0F), onBackground = Color(0xFFF1F1F1),
+    surface = Color(0xFF0F0F0F), onSurface = Color(0xFFF1F1F1),
+    surfaceVariant = Color(0xFF272727), onSurfaceVariant = Color(0xFFAAAAAA),
+    surfaceContainer = Color(0xFF212121), surfaceContainerHigh = Color(0xFF303030),
+    outline = Color(0xFF303030), error = Color(0xFFFF4E45),
+)
+
+private val type = Typography(
+    titleLarge = TextStyle(fontSize = 20.sp, fontWeight = FontWeight.Bold, lineHeight = 26.sp),
+    titleMedium = TextStyle(fontSize = 16.sp, fontWeight = FontWeight.Medium, lineHeight = 22.sp),
+    titleSmall = TextStyle(fontSize = 14.sp, fontWeight = FontWeight.Medium, lineHeight = 20.sp),
+    bodyMedium = TextStyle(fontSize = 14.sp, lineHeight = 20.sp),
+    bodySmall = TextStyle(fontSize = 12.sp, lineHeight = 17.sp),
+    labelLarge = TextStyle(fontSize = 14.sp, fontWeight = FontWeight.Medium),
+)
+
+@Composable
+fun TubeTheme(mode: Int, content: @Composable () -> Unit) {
+    val darkOn = when (mode) { 1 -> false; 2 -> true; else -> isSystemInDarkTheme() }
+    MaterialTheme(colorScheme = if (darkOn) dark else light, typography = type, content = content)
+}

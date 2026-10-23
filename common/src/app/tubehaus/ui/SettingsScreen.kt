@@ -1,0 +1,236 @@
+package app.tubehaus.ui
+
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Switch
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.unit.dp
+import app.tubehaus.data.Settings
+import app.tubehaus.data.Transfer
+import app.tubehaus.rec.Learn
+import kotlin.math.abs
+
+const val VERSION = "0.1.2"
+
+@Composable
+fun SettingsScreen(app: AppState) {
+    val s by app.store.settings.state.collectAsState()
+    fun set(f: (Settings) -> Settings) = app.store.settings.update(f)
+    var dialog by remember { mutableStateOf<String?>(null) }
+    val heights = listOf(0, 2160, 1440, 1080, 720, 480, 360, 240, 144)
+    fun hLabel(h: Int) = if (h == 0) tr("Best available") else "${h}p"
+    Narrow {
+        LazyColumn(Modifier.fillMaxSize()) {
+            item { Group(tr("General")) }
+            item { Choice(tr("Language"), LANGS.firstOrNull { it.first == s.lang }?.second ?: "English", LANGS) { c -> set { it.copy(lang = c) } } }
+            item {
+                SItem(tr("Region"), s.region.ifEmpty { app.platform.deviceRegion() + " (" + tr("from this device") + ")" }) { dialog = "region" }
+            }
+            item {
+                Choice(tr("Theme"), listOf(tr("Follow the system"), tr("Light"), tr("Dark"))[s.dark],
+                    listOf("0" to tr("Follow the system"), "1" to tr("Light"), "2" to tr("Dark"))) { c -> set { it.copy(dark = c.toInt()) } }
+            }
+            item { Toggle(tr("Calm mode"), tr("No view counts, no Shorts, nothing plays by itself"), s.calm) { b -> set { it.copy(calm = b) } } }
+
+            item { Group(tr("Playback")) }
+            item { Choice(tr("Quality"), hLabel(s.maxHeight), heights.map { "$it" to hLabel(it) }) { c -> set { it.copy(maxHeight = c.toInt()) } } }
+            if (app.platform.name == "android") item {
+                Choice(tr("Quality on mobile data"), hLabel(s.maxHeightMobileData), heights.map { "$it" to hLabel(it) }) { c -> set { it.copy(maxHeightMobileData = c.toInt()) } }
+            }
+            item { Toggle(tr("Autoplay"), tr("Play the next video when one ends"), s.autoplay) { b -> set { it.copy(autoplay = b) } } }
+            item { Toggle(tr("Captions"), tr("Turn captions on when a video has them"), s.captions) { b -> set { it.copy(captions = b) } } }
+            if (app.platform.name == "android") item {
+                Toggle(tr("Background play"), tr("Keep playing with the screen off or in another app"), s.backgroundPlay) { b -> set { it.copy(backgroundPlay = b) } }
+            }
+
+            item { Group(tr("Your data")) }
+            item { Toggle(tr("Pause watch history"), tr("Videos you watch aren't added to history and don't shape recommendations"), s.historyOff) { b -> set { it.copy(historyOff = b) } } }
+            item { SItem(tr("What TubeHaus learned about you"), tr("See and change what your recommendations are based on")) { app.go(Screen.Learned) } }
+            item { SItem(tr("Import"), tr("Subscriptions, history and playlists from YouTube (Google Takeout), NewPipe, FreeTube, Invidious, TubeHaus or OPML")) { importFile(app) } }
+            item { SItem(tr("Export"), tr("A backup you can import here, into TubeHaus on a server, or into other apps")) { dialog = "export" } }
+            item { SItem(tr("Clear watch history"), "") { dialog = "clear" } }
+
+            item { Group(tr("About")) }
+            item {
+                SItem("TubeHaus $VERSION", tr("Everything happens on this device: it talks to YouTube directly, with no TubeHaus server, no account and no tracking. Your library and recommendations never leave it.")) {
+                    app.platform.openExternal("https://github.com/biolend83/tubehaus/tree/android-app")
+                }
+            }
+            item { SItem(tr("Source code and updates"), "github.com/biolend83/tubehaus") { app.platform.openExternal("https://github.com/biolend83/tubehaus/releases") } }
+        }
+    }
+    when (dialog) {
+        "region" -> {
+            var code by remember { mutableStateOf(s.region) }
+            AlertDialog(
+                onDismissRequest = { dialog = null },
+                title = { Text(tr("Region")) },
+                text = {
+                    Column {
+                        Text(tr("Two letters, like US, KR, DE. Empty means this device's region."), style = MaterialTheme.typography.bodySmall)
+                        OutlinedTextField(code, { code = it.filter(Char::isLetter).take(2).uppercase() }, singleLine = true)
+                    }
+                },
+                confirmButton = { TextButton(onClick = { set { it.copy(region = code) }; app.rec.clearCache(); dialog = null }) { Text(tr("Save")) } },
+                dismissButton = { TextButton(onClick = { dialog = null }) { Text(tr("Cancel")) } },
+            )
+        }
+        "export" -> AlertDialog(
+            onDismissRequest = { dialog = null },
+            title = { Text(tr("Export")) },
+            text = {
+                Column {
+                    for ((fmt, label) in listOf(
+                        "tubehaus" to tr("TubeHaus backup (everything)"),
+                        "invidious" to tr("Invidious (subscriptions, history, playlists)"),
+                        "csv" to tr("CSV subscriptions (YouTube / Google Takeout format)"),
+                        "opml" to tr("OPML subscriptions (feed readers)"),
+                    )) {
+                        Text(label, Modifier.fillMaxWidth().clickable {
+                            dialog = null
+                            val (name, bytes) = Transfer.exportFile(app.store.lib.value, fmt)
+                            val mime = when (fmt) { "csv" -> "text/csv"; "opml" -> "text/x-opml"; else -> "application/json" }
+                            app.platform.saveFile(name, mime, bytes) { ok -> if (ok) app.toast(tr("Saved")) }
+                        }.padding(vertical = 12.dp))
+                    }
+                }
+            },
+            confirmButton = { TextButton(onClick = { dialog = null }) { Text(tr("Cancel")) } },
+        )
+        "clear" -> AlertDialog(
+            onDismissRequest = { dialog = null },
+            title = { Text(tr("Clear all watch history?")) },
+            text = { Text(tr("Resume points are cleared too. This can't be undone.")) },
+            confirmButton = { TextButton(onClick = { app.store.clearHistory(); dialog = null }) { Text(tr("Clear")) } },
+            dismissButton = { TextButton(onClick = { dialog = null }) { Text(tr("Cancel")) } },
+        )
+    }
+}
+
+@Composable
+private fun Group(t: String) {
+    Text(t, style = MaterialTheme.typography.titleSmall, color = Blue, modifier = Modifier.padding(start = 16.dp, top = 20.dp, bottom = 4.dp))
+}
+
+@Composable
+private fun SItem(title: String, sub: String, onClick: () -> Unit) {
+    Column(Modifier.fillMaxWidth().clickable(onClick = onClick).padding(horizontal = 16.dp, vertical = 12.dp)) {
+        Text(title, style = MaterialTheme.typography.bodyMedium)
+        if (sub.isNotEmpty()) Text(sub, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+    }
+}
+
+@Composable
+private fun Toggle(title: String, sub: String, on: Boolean, set: (Boolean) -> Unit) {
+    Row(Modifier.fillMaxWidth().clickable { set(!on) }.padding(horizontal = 16.dp, vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
+        Column(Modifier.weight(1f)) {
+            Text(title, style = MaterialTheme.typography.bodyMedium)
+            if (sub.isNotEmpty()) Text(sub, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
+        Switch(on, set)
+    }
+}
+
+@Composable
+private fun Choice(title: String, value: String, options: List<Pair<String, String>>, pick: (String) -> Unit) {
+    var open by remember { mutableStateOf(false) }
+    Box {
+        SItem(title, value) { open = true }
+        DropdownMenu(open, { open = false }) {
+            for ((k, label) in options) DropdownMenuItem(text = { Text(label) }, onClick = { open = false; pick(k) })
+        }
+    }
+}
+
+/** Everything the recommenders learned, and a way to change or wipe it. */
+@Composable
+fun LearnedScreen(app: AppState) {
+    val t by app.store.taste.state.collectAsState()
+    var confirm by remember { mutableStateOf(false) }
+    Narrow {
+        LazyColumn(Modifier.fillMaxSize()) {
+            item {
+                Column(Modifier.padding(16.dp)) {
+                    Text(tr("What TubeHaus learned about you"), style = MaterialTheme.typography.titleLarge)
+                    Text(
+                        tr("Worked out on this device from what you watch, how much of it, and what you like, skip or hide. Old tastes fade by themselves. Nothing here is sent anywhere."),
+                        style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(top = 6.dp),
+                    )
+                    TextButton(onClick = { confirm = true }) { Text(tr("Start over")) }
+                }
+            }
+            item { SectionTitle(tr("Channels")) }
+            val ch = t.ch.entries.sortedByDescending { it.value }
+            if (ch.isEmpty()) item { Empty(tr("Nothing yet")) }
+            items(ch.take(100), key = { "c" + it.key }) { (cid, score) ->
+                Score(t.names[cid] ?: cid, score, onClick = { app.go(Screen.Channel(cid, t.names[cid] ?: "")) }) {
+                    app.store.taste.update { x -> x.copy(ch = x.ch - cid) }
+                }
+            }
+            item { SectionTitle(tr("Topics")) }
+            val kw = t.kw.entries.sortedByDescending { it.value }
+            if (kw.isEmpty()) item { Empty(tr("Nothing yet")) }
+            items(kw.take(150), key = { "k" + it.key }) { (k, score) ->
+                Score(k, score, onClick = null) { app.store.taste.update { x -> x.copy(kw = x.kw - k) } }
+            }
+            if (t.hiddenChannels.isNotEmpty()) {
+                item { SectionTitle(tr("Channels you hid")) }
+                items(t.hiddenChannels, key = { "h$it" }) { cid ->
+                    Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp), verticalAlignment = Alignment.CenterVertically) {
+                        Text(t.names[cid] ?: cid, Modifier.weight(1f))
+                        TextButton(onClick = {
+                            app.store.taste.update { x -> x.copy(hiddenChannels = x.hiddenChannels - cid, ch = x.ch - cid) }
+                        }) { Text(tr("Show again")) }
+                    }
+                }
+            }
+        }
+    }
+    if (confirm) AlertDialog(
+        onDismissRequest = { confirm = false },
+        title = { Text(tr("Forget everything TubeHaus learned?")) },
+        text = { Text(tr("Your subscriptions, history and playlists stay.")) },
+        confirmButton = { TextButton(onClick = { Learn.reset(app.store); app.rec.clearCache(); confirm = false }) { Text(tr("Start over")) } },
+        dismissButton = { TextButton(onClick = { confirm = false }) { Text(tr("Cancel")) } },
+    )
+}
+
+@Composable
+private fun Score(label: String, score: Double, onClick: (() -> Unit)?, remove: () -> Unit) {
+    Row(
+        Modifier.fillMaxWidth().let { if (onClick != null) it.clickable(onClick = onClick) else it }.padding(horizontal = 16.dp, vertical = 4.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text(label, Modifier.weight(1f), maxLines = 1)
+        Box(Modifier.width(100.dp).height(6.dp).background(MaterialTheme.colorScheme.surfaceVariant)) {
+            Box(Modifier.fillMaxWidth((abs(score) / 10).toFloat().coerceIn(0.02f, 1f)).height(6.dp).background(if (score >= 0) Blue else Red))
+        }
+        TextButton(onClick = remove) { Text(tr("Forget")) }
+    }
+    HorizontalDivider(color = MaterialTheme.colorScheme.outline)
+}

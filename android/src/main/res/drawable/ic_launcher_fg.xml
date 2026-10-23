@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- the TubeHaus mark: a red rounded screen with a white play triangle, inside the 66dp safe zone -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp" android:height="108dp"
+    android:viewportWidth="108" android:viewportHeight="108">
+    <path android:fillColor="#FF0033"
+        android:pathData="M36,34h36a10,10 0 0 1 10,10v20a10,10 0 0 1 -10,10h-36a10,10 0 0 1 -10,-10v-20a10,10 0 0 1 10,-10z" />
+    <path android:fillColor="#FFFFFF" android:pathData="M48,44.5L62,54L48,63.5Z" />
+</vector>
